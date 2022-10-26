@@ -158,7 +158,7 @@ def generate_one_curve(X,
     kwargs["N"] = n_active
     kwargs["already_selected"] = already_selected
     batch_AL = sampler.select_batch(**kwargs)
-    already_selected = already_selected + batch_AL
+    already_selected = list(already_selected) + list(batch_AL)
     kwargs["N"] = n_passive
     kwargs["already_selected"] = already_selected
     batch_PL = uniform_sampler.select_batch(**kwargs)
@@ -210,7 +210,7 @@ def generate_one_curve(X,
   results = {}
   data_sizes = []
   accuracy = []
-  selected_inds = range(seed_batch)
+  selected_inds = list(range(seed_batch))
 
   # If select model is None, use score_model
   same_score_select = False

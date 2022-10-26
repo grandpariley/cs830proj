@@ -47,7 +47,7 @@ def get_wrapper_AL_mapping():
   AL_MAPPING['bandit_mixture'] = partial(
       BanditDiscreteSampler,
       samplers=[{
-          'methods': ['margin', 'uniform'],
+        'methods': ['margin', 'uniform'],
           'weights': [0, 1]
       }, {
           'methods': ['margin', 'uniform'],
