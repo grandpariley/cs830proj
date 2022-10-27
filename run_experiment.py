@@ -70,12 +70,12 @@ flags.DEFINE_string("confusions", "0.", "Percentage of labels to randomize")
 flags.DEFINE_string("active_sampling_percentage", "1.0",
                     "Mixture weights on active sampling.")
 flags.DEFINE_string(
-    "score_method", "logistic",
+    "score_method", "kernel_svm",
     "Method to use to calculate accuracy.")
 flags.DEFINE_string(
     "select_method", "None",
     "Method to use for selecting points.")
-flags.DEFINE_string("normalize_data", "False", "Whether to normalize the data.")
+flags.DEFINE_string("normalize_data", "True", "Whether to normalize the data.")
 flags.DEFINE_string("standardize_data", "True",
                     "Whether to standardize the data.")
 flags.DEFINE_string("save_dir", "./data",
@@ -266,6 +266,7 @@ def generate_one_curve(X,
 
 def main(argv):
   del argv
+  print(FLAGS)
 
   if not gfile.exists(FLAGS.save_dir):
     try:

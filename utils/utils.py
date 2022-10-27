@@ -223,7 +223,7 @@ def get_model(method, seed=13):
     model = LinearSVC(random_state=seed)
     params = {"C": [10.0**(i) for i in range(-4, 5)]}
   elif method == "kernel_svm":
-    model = SVC(random_state=seed)
+    model = SVC(random_state=seed, max_iter=1500)
     params = {"C": [10.0**(i) for i in range(-4, 5)]}
   elif method == "kernel_ls":
     model = BlockKernelSolver(random_state=seed)
