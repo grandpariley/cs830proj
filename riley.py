@@ -1,8 +1,8 @@
+import random
 import sys
 from sampling_methods.graph_density import GraphDensitySampler
 from sampling_methods.margin_AL import MarginAL
-from sampling_methods.sampling_def import SamplingMethod
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from sklearn.model_selection import GridSearchCV
@@ -34,14 +34,21 @@ def get_ag_news():
     max_len = get_max_len(x)
     x_seq = get_sequences(tokenizer, x, max_len)
     x_test_seq = get_sequences(tokenizer, x_test, max_len)
+    scaler = MinMaxScaler()
+    x_seq = scaler.fit_transform(x_seq, y)
+    x_test_seq = scaler.fit_transform(x_test_seq, y_test)
     return x_seq, y, x_test_seq, y_test
+
+def get_random_indicies(num_indicies, all_indicies):
+    assert num_indicies < all_indicies
+    s = set()
+    while len(s) < num_indicies:
+        s.add(random.randint(0, all_indicies))
+    return s
 
 def main(argv):
     argv = ["margin", "svm", 3, 1000]
     x, y, x_test, y_test = get_ag_news()
-    scaler = StandardScaler().fit(x)
-    x = scaler.transform(x)
-    x_test = scaler.transform(x_test)
     # active learning time!
     sampling_method = None
     if argv[0] == "margin": 
@@ -63,17 +70,17 @@ def main(argv):
 
     # use select batch to loop over x and y with smaller batches
     batches = argv[2]
-    indicies = set()
+    indicies = get_random_indicies(argv[3], len(x))
     for b in range(batches):
-        x_part = x[sorted(indicies)]
-        y_part = y[sorted(indicies)]
+        x_part = [x[i] for i in indicies]
+        y_part = [y[i] for i in indicies]
         model.fit(x_part, y_part)
         accuracy = model.score(x_test, y_test)
         print(b, accuracy)
         if argv[0] == "margin":
-            indicies += sampling_method.select_batch(model=model, already_selected=indicies, N=argv[3])
+            indicies += set(sampling_method.select_batch(model=model, already_selected=indicies, N=argv[3]))
         if argv[0] == "graph":
-            indicies += sampling_method.select_batch(already_selected=indicies, N=argv[3])
+            indicies += set(sampling_method.select_batch(already_selected=indicies, N=argv[3]))
 
 if __name__ == "__main__":
     main(sys.argv)
