@@ -47,9 +47,9 @@ def get_ag_news():
     x_test = [i.decode('utf-8') for i in x_test]
     tokenizer = Tokenizer()
     tokenizer.fit_on_texts(x)
-    x_seq = get_sequences(tokenizer, x, get_max_len(x))
+    x_seq = get_sequences(tokenizer, x, get_max_len(x + x_test))
     tokenizer.fit_on_texts(x_test)
-    x_test_seq = get_sequences(tokenizer, x_test, get_max_len(x_test))
+    x_test_seq = get_sequences(tokenizer, x_test, get_max_len(x + x_test))
     with open('x.json', 'w') as file:
         json.dump(x_seq.tolist(), file)
     with open('x_test.json', 'w') as file:
@@ -72,7 +72,7 @@ def get_random_indicies(num_indicies, all_indicies):
 
 
 def main(argv):
-    argv = ["graph", "cnn", 3, 1000]
+    argv = ["margin", "cnn", 3, 1000]
     x, y, x_test, y_test = get_ag_news()
     # active learning time!
     sampling_method = None
@@ -104,8 +104,8 @@ def main(argv):
 
     batches = argv[2]
     initial_indicies = get_random_indicies(argv[3], len(x))
-    x_part = [x[i] for i in initial_indicies]
-    y_part = [y[i] for i in initial_indicies]
+    x_part = np.array([x[i] for i in initial_indicies])
+    y_part = np.array([y[i] for i in initial_indicies])
     model.fit(x_part, y_part)
     indicies = set()
     for b in range(batches):
