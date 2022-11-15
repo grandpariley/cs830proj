@@ -122,7 +122,7 @@ class SmallCNN(object):
         y_encode = self.encode_y(y)
         y_encode = np.reshape(y_encode, (y_encode.size, 1))
         y_mat = keras.utils.to_categorical(y_encode, self.n_classes)
-        return y_mat
+        return np.array(y_mat)
 
     # Add handling for classes that do not start counting from 0
     def encode_y(self, y):
@@ -142,8 +142,8 @@ class SmallCNN(object):
         return transformed_y
 
     def fit(self, X_train, y_train, sample_weight=None):
-        y_mat = self.create_y_mat(y_train)
-
+        y_mat = tf.stack(self.create_y_mat(y_train))
+        X_train = tf.stack(X_train)
         if self.model is None:
             self.build_model(X_train)
 

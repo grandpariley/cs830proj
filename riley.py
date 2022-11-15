@@ -72,7 +72,7 @@ def get_random_indicies(num_indicies, all_indicies):
 
 
 def main(argv):
-    argv = ["margin", "cnn", 3, 1000]
+    argv = ["graph", "svm", 3, 1000]
     x, y, x_test, y_test = get_ag_news()
     # active learning time!
     sampling_method = None
@@ -85,7 +85,6 @@ def main(argv):
         from sampling_methods.graph_density import GraphDensitySampler
 
         print("graph time!")
-        print(len(x))
         sampling_method = GraphDensitySampler(x, y, None)
     # model time!
     model = None
