@@ -85,7 +85,7 @@ def main(argv):
         from sampling_methods.graph_density import GraphDensitySampler
 
         print("graph time!")
-        sampling_method = GraphDensitySampler(x, y, None)
+        sampling_method = None
     # model time!
     model = None
     if argv[1] == "svm":
@@ -115,11 +115,11 @@ def main(argv):
             )
         if argv[0] == "graph":
             indicies = indicies.union(
-                sampling_method.select_batch(
-                    already_selected=indicies, N=argv[3])
+                GraphDensitySampler(x_part, None, None).select_batch(
+                    already_selected=list(indicies), N=argv[3])
             )
-        x_part = [x[i] for i in indicies]
-        y_part = [y[i] for i in indicies]
+        x_part = np.array([x[i] for i in indicies])
+        y_part = np.array([y[i] for i in indicies])
         model.fit(x_part, y_part)
         accuracy = model.score(x_test, y_test)
         print(b, accuracy)

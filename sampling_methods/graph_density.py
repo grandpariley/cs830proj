@@ -44,7 +44,7 @@ class GraphDensitySampler(SamplingMethod):
     self.gamma = 1. / self.X.shape[1]
     self.compute_graph_density()
 
-  def compute_graph_density(self, n_neighbor=10):
+  def compute_graph_density(self, n_neighbor=8):
     # kneighbors graph is constructed using k=10
     connect = kneighbors_graph(self.flat_X, n_neighbor,p=1)
     # Make connectivity matrix symmetric, if a point is a k nearest neighbor of
