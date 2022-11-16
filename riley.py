@@ -11,7 +11,7 @@ def get_ag_news():
     import json
 
     if files_exist():
-        print("hit cache!")
+        print("hit cache")
         with open('x.json', 'r') as file:
             x_seq = json.load(file)
         with open('x_test.json', 'r') as file:
@@ -71,36 +71,37 @@ def get_random_indicies(num_indicies, all_indicies):
     return s
 
 
-def main(argv):
-    argv = ["graph", "svm", 3, 1000]
-    x, y, x_test, y_test = get_ag_news()
+def get_model(sm, m, x, y):
     # active learning time!
     sampling_method = None
-    if argv[0] == "margin":
+    if sm == "margin":
         from sampling_methods.margin_AL import MarginAL
 
         print("margin time!")
         sampling_method = MarginAL(x, y, 13)
-    if argv[0] == "graph":
-        from sampling_methods.graph_density import GraphDensitySampler
-
+    if sm == "graph":
         print("graph time!")
         sampling_method = None
     # model time!
     model = None
-    if argv[1] == "svm":
+    if m == "svm":
         from sklearn.svm import NuSVC
 
         print("svm time!")
         model = NuSVC(gamma="auto", probability=True)
-    if argv[1] == "cnn":
+    if m == "cnn":
         from utils.small_cnn import SmallCNN
 
-        print("cable news time!")
+        print("cnn time!")
         model = SmallCNN(random_state=13)
-    if model is None:
-        return
+    return model, sampling_method
 
+
+def main(argv):
+    argv = ["margin", "svm", 3, 5000]
+    x, y, x_test, y_test = get_ag_news()
+
+    model, sampling_method = get_model(argv[0], argv[1], x, y)
     batches = argv[2]
     initial_indicies = get_random_indicies(argv[3], len(x))
     x_part = np.array([x[i] for i in initial_indicies])
@@ -114,6 +115,8 @@ def main(argv):
                     model=model, already_selected=indicies, N=argv[3])
             )
         if argv[0] == "graph":
+            from sampling_methods.graph_density import GraphDensitySampler
+
             indicies = indicies.union(
                 GraphDensitySampler(x_part, None, None).select_batch(
                     already_selected=list(indicies), N=argv[3])
