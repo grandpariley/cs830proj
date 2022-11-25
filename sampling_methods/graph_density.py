@@ -25,11 +25,14 @@ from __future__ import print_function
 
 import copy
 
-from sklearn.neighbors import kneighbors_graph
-from sklearn.metrics import pairwise_distances
 import numpy as np
 from sampling_methods.sampling_def import SamplingMethod
 
+
+def files_exist():
+    from os.path import exists as file_exists
+
+    return file_exists('connect.json')
 
 class GraphDensitySampler(SamplingMethod):
   """Diversity promoting sampling method that uses graph density to determine
@@ -44,31 +47,46 @@ class GraphDensitySampler(SamplingMethod):
     self.gamma = 1. / self.X.shape[1]
     self.compute_graph_density()
 
-  def compute_graph_density(self, n_neighbor=8):
+  def compute_graph_density(self, n_neighbor=3):
     # kneighbors graph is constructed using k=10
-    connect = kneighbors_graph(self.flat_X, n_neighbor,p=1)
-    # Make connectivity matrix symmetric, if a point is a k nearest neighbor of
-    # another point, make it vice versa
-    neighbors = connect.nonzero()
-    inds = zip(neighbors[0],neighbors[1])
-    # Graph edges are weighted by applying gaussian kernel to manhattan dist.
-    # By default, gamma for rbf kernel is equal to 1/n_features but may
-    # get better results if gamma is tuned.
-    for entry in inds:
-      i = entry[0]
-      j = entry[1]
-      distance = pairwise_distances(self.flat_X[[i]],self.flat_X[[j]],metric='manhattan')
-      distance = distance[0,0]
-      weight = np.exp(-distance * self.gamma)
-      connect[i,j] = weight
-      connect[j,i] = weight
-    self.connect = connect
-    # Define graph density for an observation to be sum of weights for all
+    print("start neighbours")
+    import json
+
+    if files_exist():
+      print("hit cache")
+      with open('connect.json', 'r') as file:
+          connect = json.load(file)
+    else:
+      from sklearn.neighbors import kneighbors_graph
+      from sklearn.metrics import pairwise_distances
+
+      connect = kneighbors_graph(self.flat_X, n_neighbor, p = 1, n_jobs=-1)
+      print("stop neighbours")
+      # Make connectivity matrix symmetric, if a point is a k nearest neighbor of
+      # another point, make it vice versa
+      neighbors = connect.nonzero()
+      inds = zip(neighbors[0],neighbors[1])
+      # Graph edges are weighted by applying gaussian kernel to manhattan dist.
+      # By default, gamma for rbf kernel is equal to 1/n_features but may
+      # get better results if gamma is tuned.
+      for entry in inds:
+        i = entry[0]
+        j = entry[1]
+        distance = pairwise_distances(self.flat_X[[i]],self.flat_X[[j]],metric='manhattan')
+        distance = distance[0,0]
+        weight = np.exp(-distance * self.gamma)
+        connect[i,j] = weight
+        connect[j,i] = weight
+      self.connect = connect
+      with open('connect.json', 'w') as file:
+        json.dump(connect.toarray(), file)
+
+    # Define graph density for an observation to be sum of  weights for all
     # edges to the node representing the datapoint.  Normalize sum weights
     # by total number of neighbors.
     self.graph_density = np.zeros(self.X.shape[0])
     for i in np.arange(self.X.shape[0]):
-      self.graph_density[i] = connect[i,:].sum() / (connect[i,:]>0).sum()
+      self.graph_density[i] = self.connect[i,:].sum() / (self.connect[i,:]>0).sum()
     self.starting_density = copy.deepcopy(self.graph_density)
 
   def select_batch_(self, N, already_selected, **kwargs):
