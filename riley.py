@@ -67,21 +67,21 @@ def get_random_indicies(num_indicies, all_indicies):
     assert num_indicies < all_indicies
     s = set()
     while len(s) < num_indicies:
-        s.add(random.randint(0, all_indicies))
+        s.add(random.randint(0, all_indicies - 1))
     return s
 
 
 def get_model(sm, m, x, y):
     # active learning time!
+    from sklearn.svm import NuSVC
+
     sampling_method = None
-    sampling_model = None
+    sampling_model = NuSVC(gamma="auto", probability=True)
     if sm == "margin":
         from sampling_methods.margin_AL import MarginAL
 
         print("margin time!")
         sampling_method = MarginAL(x, y, 13)
-        sampling_model = NuSVC(gamma="auto", probability=True)
-        sampling_model.fit(x, y)
     if sm == "kcentre":
         from sampling_methods.kcenter_greedy import kCenterGreedy
 
@@ -90,8 +90,6 @@ def get_model(sm, m, x, y):
     # model time!
     model = None
     if m == "svm":
-        from sklearn.svm import NuSVC
-
         print("svm time!")
         model = NuSVC(gamma="auto", probability=True)
     if m == "cnn":
@@ -103,27 +101,23 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["kcentre", "", 10, 30000]
+    argv = ["kcentre", "svm", 10, 30000]
     x, y, x_test, y_test = get_ag_news()
     model, sampling_method, sampling_model = get_model(argv[0], argv[1], x, y)
     batches = argv[2]
-    indicies = set()
+    indicies = get_random_indicies(argv[3], len(x))
     for b in range(batches):
-        if argv[0] == "margin":
-            indicies = indicies.union(
-                sampling_method.select_batch(
-                    model=sampling_model, already_selected=indicies, N=argv[3])
-            )
-        if argv[0] == "graph":
-            indicies = indicies.union(
-                sampling_method.select_batch(
-                    already_selected=list(indicies), N=argv[3])
-            )
+        print("starting round " + str(b))
         x_part = np.array([x[i] for i in indicies])
         y_part = np.array([y[i] for i in indicies])
+        sampling_model.fit(x_part, y_part)
         model.fit(x_part, y_part)
         accuracy = model.score(x_test, y_test)
         print(b, accuracy)
+        indicies = indicies.union(
+            sampling_method.select_batch(
+                model=sampling_model, already_selected=indicies, N=argv[3])
+        )
 
 
 if __name__ == "__main__":
