@@ -7,6 +7,10 @@ def files_exist():
     return file_exists('x.json') and file_exists('x_test.json') and file_exists('y.json') and file_exists('y_test.json')
 
 
+def trim(b):
+    return b.decode('utf-8').lower().replace("\\", " ")
+
+
 def get_ag_news():
     import json
 
@@ -23,18 +27,35 @@ def get_ag_news():
         print("loaded cache")
         return np.array(x_seq), np.array(y), np.array(x_test_seq), np.array(y_test)
 
-    from tensorflow.keras.preprocessing.text import Tokenizer
-    from tensorflow.keras.preprocessing.sequence import pad_sequences
     import tensorflow_datasets as tfds
+    import nltk
+    from nltk.tokenize import word_tokenize
+    from nltk.corpus import wordnet as wn
+    from nltk.corpus import stopwords
+    from nltk.stem import WordNetLemmatizer
+    from nltk import pos_tag
+    from collections import defaultdict
+    nltk.download('punkt')
+    nltk.download('wordnet')
+    nltk.download('omw-1.4')
+    nltk.download('averaged_perceptron_tagger')
+    nltk.download('stopwords')
 
-    def get_max_len(descriptions):
-        return max([len(x) for x in descriptions])
-
-    def get_sequences(tokenizer, descriptions, max_len):
-        sequences = tokenizer.texts_to_sequences(descriptions)
-        padded = pad_sequences(sequences, truncating='post',
-                               padding='post', maxlen=max_len)
-        return padded
+    def lemma(array):
+        tag_map = defaultdict(lambda: wn.NOUN)
+        tag_map['J'] = wn.ADJ
+        tag_map['V'] = wn.VERB
+        tag_map['R'] = wn.ADV
+        rt = []
+        word_net_lemmatizer = WordNetLemmatizer()
+        for entry in array:
+            final = []
+            for word, tag in pos_tag(entry):
+                if word not in stopwords.words('english') and word.isalpha():
+                    word = word_net_lemmatizer.lemmatize(word, tag_map[tag[0]])
+                    final.append(word)
+            rt.append(final)
+        return rt
 
     (x, y), (x_test, y_test) = tfds.as_numpy(tfds.load(
         'ag_news_subset',
@@ -50,13 +71,14 @@ def get_ag_news():
     print("y = " + str(len(y)))
     print("x_test = " + str(len(x_test)))
     print("y_test = " + str(len(y_test)))
-    x = [i.decode('utf-8') for i in x]
-    x_test = [i.decode('utf-8') for i in x_test]
-    tokenizer = Tokenizer()
-    tokenizer.fit_on_texts(x)
-    x_seq = get_sequences(tokenizer, x, get_max_len(x + x_test))
-    tokenizer.fit_on_texts(x_test)
-    x_test_seq = get_sequences(tokenizer, x_test, get_max_len(x + x_test))
+    x = [trim(i) for i in x]
+    x_test = [trim(i) for i in x_test]
+    x = [word_tokenize(i) for i in x]
+    x_test = [word_tokenize(i) for i in x_test]
+
+    x = lemma(x)
+    x_test = lemma(x_test)
+
     with open('x.json', 'w') as file:
         json.dump(x_seq.tolist(), file)
     with open('x_test.json', 'w') as file:
@@ -65,7 +87,7 @@ def get_ag_news():
         json.dump(y.tolist(), file)
     with open('y_test.json', 'w') as file:
         json.dump(y_test.tolist(), file)
-    return x_seq, y, x_test_seq, y_test
+    return x, y, x_test, y_test
 
 
 def get_random_indicies(num_indicies, all_indicies):
@@ -81,9 +103,11 @@ def get_random_indicies(num_indicies, all_indicies):
 def get_model(sm, m, x, y):
     # active learning time!
     from sklearn.svm import NuSVC
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
 
     sampling_method = None
-    sampling_model = NuSVC(gamma="auto", probability=True)
+    sampling_model = make_pipeline(StandardScaler(), NuSVC())
     if sm == "margin":
         from sampling_methods.margin_AL import MarginAL
 
@@ -98,7 +122,7 @@ def get_model(sm, m, x, y):
     model = None
     if m == "svm":
         print("svm time!")
-        model = NuSVC(gamma="auto", probability=True)
+        model = make_pipeline(StandardScaler(), NuSVC())
     if m == "cnn":
         from utils.small_cnn import SmallCNN
 
@@ -108,8 +132,11 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["margin", "svm", 10, 200, True]
+    argv = ["margin", "svm", 10, 200, True, True]
     x, y, x_test, y_test = get_ag_news()
+    if argv[5]:
+        print("that's all folks!")
+        return
     model, sampling_method, sampling_model = get_model(argv[0], argv[1], x, y)
     if argv[4]:
         print("passive learning time!")
