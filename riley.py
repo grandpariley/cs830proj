@@ -42,7 +42,14 @@ def get_ag_news():
         batch_size=-1,
         as_supervised=True,
     ))
-
+    x = x[:12000]
+    y = y[:12000]
+    x_test = x_test[:760]
+    y_test = y_test[:760]
+    print("x = " + str(len(x)))
+    print("y = " + str(len(y)))
+    print("x_test = " + str(len(x_test)))
+    print("y_test = " + str(len(y_test)))
     x = [i.decode('utf-8') for i in x]
     x_test = [i.decode('utf-8') for i in x_test]
     tokenizer = Tokenizer()
@@ -101,7 +108,7 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["kcentre", "svm", 10, 30000]
+    argv = ["kcentre", "svm", 10, 200]
     x, y, x_test, y_test = get_ag_news()
     model, sampling_method, sampling_model = get_model(argv[0], argv[1], x, y)
     batches = argv[2]

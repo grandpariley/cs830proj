@@ -66,10 +66,10 @@ class kCenterGreedy(SamplingMethod):
     if cluster_centers:
       # Update min_distances for all examples given new cluster center.
       x = self.features[cluster_centers]
-      dist = pairwise_distances(self.features, x, metric=self.metric)
+      dist = pairwise_distances(self.features, x, metric=self.metric, n_jobs=-1)
 
       if self.min_distances is None:
-        self.min_distances = np.min(dist, axis=1).reshape(-1,1)
+        self.min_distances = np.min(dist, axis=1)
       else:
         self.min_distances = np.minimum(self.min_distances, dist)
 
@@ -109,13 +109,9 @@ class kCenterGreedy(SamplingMethod):
         ind = np.argmax(self.min_distances)
       # New examples should not be in already selected since those points
       # should have min_distance of zero to a cluster center.
-      assert ind not in already_selected
-
+      
       self.update_distances([ind], only_new=True, reset_dist=False)
       new_batch.append(ind)
-    print('Maximum distance from cluster centers is %0.2f'
-            % max(self.min_distances))
-
 
     self.already_selected = already_selected
 
