@@ -108,9 +108,15 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["kcentre", "svm", 10, 200]
+    argv = ["margin", "svm", 10, 200, True]
     x, y, x_test, y_test = get_ag_news()
     model, sampling_method, sampling_model = get_model(argv[0], argv[1], x, y)
+    if argv[4]:
+        print("passive learning time!")
+        model.fit(x, y)
+        print(model.score(x_test, y_test))
+        return
+    print("active learning time!")
     batches = argv[2]
     indicies = get_random_indicies(argv[3], len(x))
     for b in range(batches):
