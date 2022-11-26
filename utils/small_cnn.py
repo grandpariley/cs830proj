@@ -25,7 +25,7 @@ from keras.layers import Dense
 from keras.layers import Dropout
 from keras.layers import Flatten
 from keras.models import Sequential
-from keras.optimizers import RMSprop 
+from keras.optimizers import RMSprop
 
 import numpy as np
 import tensorflow as tf
@@ -62,57 +62,23 @@ class SmallCNN(object):
         self.n_classes = None
 
     def build_model(self, X):
-        # assumes that data axis order is same as the backend
-        input_shape = X.shape[1:]
         np.random.seed(self.random_state)
         tf.random.set_seed(self.random_state)
+        print(X.numpy())
+        model = tf.keras.models.Sequential(
+            [
+                tf.keras.layers.Embedding(5000, 4, input_length=5000),
+                tf.keras.layers.LSTM(16),
+                tf.keras.layers.Dense(4, activation='softmax')
+            ]
+        )
 
-        model = Sequential()
-        model.add(Dense(512, activation='relu', input_shape=input_shape))
-        model.add(Dropout(0.2))
-        model.add(Dense(512, activation='relu'))
-        # model.add(Flatten())
-        model.add(Dropout(0.2))
-        model.add(Dense(4, activation='softmax'))
+        model.compile(
+            loss='categorical_crossentropy',
+            optimizer=RMSprop(),
+            metrics=['accuracy']
+        )
 
-
-
-        # model.add(Conv1D(32, (1), padding='same', input_shape=input_shape, name='conv1'))
-        # model.add(Activation('relu'))
-        # model.add(Conv1D(32, (1), name='conv2'))
-        # model.add(Activation('relu'))
-        # model.add(MaxPooling1D(pool_size=(2)))
-        # model.add(Dropout(0.25))
-
-        # model.add(Conv1D(64, (1), padding='same', name='conv3'))
-        # model.add(Activation('relu'))
-        # model.add(Conv1D(64, (1), name='conv4'))
-        # model.add(Activation('relu'))
-        # model.add(MaxPooling1D(pool_size=(2)))
-        # model.add(Dropout(0.25))
-
-        # model.add(Flatten())
-        # model.add(Dense(512, name='dense1'))
-        # model.add(Activation('relu'))
-        # model.add(Dropout(0.5))
-        # model.add(Dense(self.n_classes, name='dense2'))
-        # model.add(Activation('softmax'))
-
-        # try:
-        #   optimizer = getattr(keras.optimizers, self.solver)
-        # except:
-        #   raise NotImplementedError('optimizer not implemented in keras')
-        # All optimizers with the exception of nadam take decay as named arg
-        # try:
-        #   opt = optimizer(lr=self.learning_rate, decay=self.lr_decay)
-        # except:
-        #   opt = optimizer(lr=self.learning_rate, schedule_decay=self.lr_decay)
-
-        model.compile(loss='categorical_crossentropy',
-                      optimizer=RMSprop(),
-                      metrics=['accuracy'])
-        # Save initial weights so that model can be retrained with same
-        # initialization
         model.build()
         self.initial_weights = copy.deepcopy(model.get_weights())
 
@@ -143,7 +109,7 @@ class SmallCNN(object):
 
     def fit(self, X_train, y_train, sample_weight=None):
         y_mat = tf.stack(self.create_y_mat(y_train))
-        X_train = tf.stack(X_train)
+        X_train = tf.stack(X_train.toarray())
         if self.model is None:
             self.build_model(X_train)
 
@@ -157,7 +123,8 @@ class SmallCNN(object):
             epochs=self.epochs,
             shuffle=True,
             sample_weight=sample_weight,
-            verbose=0)
+            verbose=0
+        )
 
     def predict(self, X_val):
         predicted = self.model.predict(X_val)
