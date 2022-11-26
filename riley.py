@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as sparse
 
 
 def files_exist():
@@ -17,15 +18,15 @@ def get_ag_news():
     if files_exist():
         print("hit cache")
         with open('x.json', 'r') as file:
-            x_seq = json.load(file)
+            x = json.load(file)
         with open('x_test.json', 'r') as file:
-            x_test_seq = json.load(file)
+            x_test = json.load(file)
         with open('y.json', 'r') as file:
             y = json.load(file)
         with open('y_test.json', 'r') as file:
             y_test = json.load(file)
         print("loaded cache")
-        return np.array(x_seq), np.array(y), np.array(x_test_seq), np.array(y_test)
+        return sparse.csr_matrix(np.array(x)), np.array(y), sparse.csr_matrix(np.array(x_test)), np.array(y_test)
 
     import tensorflow_datasets as tfds
     import nltk
@@ -34,6 +35,7 @@ def get_ag_news():
     from nltk.corpus import stopwords
     from nltk.stem import WordNetLemmatizer
     from nltk import pos_tag
+    from sklearn.feature_extraction.text import TfidfVectorizer
     from collections import defaultdict
     nltk.download('punkt')
     nltk.download('wordnet')
@@ -54,7 +56,7 @@ def get_ag_news():
                 if word not in stopwords.words('english') and word.isalpha():
                     word = word_net_lemmatizer.lemmatize(word, tag_map[tag[0]])
                     final.append(word)
-            rt.append(final)
+            rt.append(str(final))
         return rt
 
     (x, y), (x_test, y_test) = tfds.as_numpy(tfds.load(
@@ -63,31 +65,25 @@ def get_ag_news():
         batch_size=-1,
         as_supervised=True,
     ))
-    x = x[:12000]
-    y = y[:12000]
-    x_test = x_test[:760]
-    y_test = y_test[:760]
-    print("x = " + str(len(x)))
-    print("y = " + str(len(y)))
-    print("x_test = " + str(len(x_test)))
-    print("y_test = " + str(len(y_test)))
-    x = [trim(i) for i in x]
-    x_test = [trim(i) for i in x_test]
-    x = [word_tokenize(i) for i in x]
-    x_test = [word_tokenize(i) for i in x_test]
-
-    x = lemma(x)
-    x_test = lemma(x_test)
+    y = y[:12000].tolist()
+    y_test = y_test[:760].tolist()
+    x = lemma([word_tokenize(trim(i)) for i in x[:12000]])
+    x_test = lemma([word_tokenize(trim(i)) for i in x_test[:760]])
+    ## human readable until here ##
+    tfidf_vectorizer = TfidfVectorizer(max_features=5000)
+    tfidf_vectorizer.fit(x + x_test)
+    x = tfidf_vectorizer.transform(x).toarray()
+    x_test = tfidf_vectorizer.transform(x_test).toarray()
 
     with open('x.json', 'w') as file:
-        json.dump(x_seq.tolist(), file)
+        json.dump(x.tolist(), file)
     with open('x_test.json', 'w') as file:
-        json.dump(x_test_seq.tolist(), file)
+        json.dump(x_test.tolist(), file)
     with open('y.json', 'w') as file:
-        json.dump(y.tolist(), file)
+        json.dump(y, file)
     with open('y_test.json', 'w') as file:
-        json.dump(y_test.tolist(), file)
-    return x, y, x_test, y_test
+        json.dump(y_test, file)
+    return sparse.csr_matrix(x), np.array(y), sparse.csr_matrix(x_test), np.array(y_test)
 
 
 def get_random_indicies(num_indicies, all_indicies):
@@ -107,7 +103,7 @@ def get_model(sm, m, x, y):
     from sklearn.preprocessing import StandardScaler
 
     sampling_method = None
-    sampling_model = make_pipeline(StandardScaler(), NuSVC())
+    sampling_model = make_pipeline(StandardScaler(with_mean=False), NuSVC())
     if sm == "margin":
         from sampling_methods.margin_AL import MarginAL
 
@@ -122,7 +118,7 @@ def get_model(sm, m, x, y):
     model = None
     if m == "svm":
         print("svm time!")
-        model = make_pipeline(StandardScaler(), NuSVC())
+        model = make_pipeline(StandardScaler(with_mean=False), NuSVC())
     if m == "cnn":
         from utils.small_cnn import SmallCNN
 
@@ -132,7 +128,7 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["margin", "svm", 10, 200, True, True]
+    argv = ["margin", "cnn", 10, 200, True, False]
     x, y, x_test, y_test = get_ag_news()
     if argv[5]:
         print("that's all folks!")
