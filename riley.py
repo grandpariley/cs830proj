@@ -109,10 +109,10 @@ def get_model(sm, m, x, y):
 
         print("margin time!")
         sampling_method = MarginAL(x, y, 13)
-    if sm == "kcentre":
-        from activelearning.kcenter_greedy import GraphDensitySampler
+    if sm == "graph":
+        from activelearning.graph import GraphDensitySampler
 
-        print("kcentre time!")
+        print("graph time!")
         sampling_method = GraphDensitySampler(x, y, 13)
     # model time!
     model = None
@@ -130,7 +130,7 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["margin", "svm", 10, 200, True, True]
+    argv = ["margin", "nn", 10, 200, False, True]
     x, y, x_test, y_test = get_ag_news()
     if not argv[5]:
         print("that's all folks!")
