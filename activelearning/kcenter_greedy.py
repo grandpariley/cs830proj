@@ -12,111 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Returns points that minimizes the maximum distance of any point to a center.
-
-Implements the k-Center-Greedy method in
-Ozan Sener and Silvio Savarese.  A Geometric Approach to Active Learning for
-Convolutional Neural Networks. https://arxiv.org/abs/1708.00489 2017
-
-Distance metric defaults to l2 distance.  Features used to calculate distance
-are either raw features or if a model has transform method then uses the output
-of model.transform(X).
-
-Can be extended to a robust k centers algorithm that ignores a certain number of
-outlier datapoints.  Resulting centers are solution to multiple integer program.
+"""Diversity promoting sampling method that uses graph density to determine
+ most representative points.
+This is an implementation of the method described in
+https://www.mpi-inf.mpg.de/fileadmin/inf/d2/Research_projects_files/EbertCVPR2012.pdf
 """
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
+import copy
+
+from sklearn.neighbors import kneighbors_graph
 from sklearn.metrics import pairwise_distances
+import numpy as np
 
 
-class kCenterGreedy:
+class GraphDensitySampler:
+    """Diversity promoting sampling method that uses graph density to determine
+    most representative points.
+    """
 
-    def __init__(self, X, y, seed, metric='euclidean'):
+    def __init__(self, X, y, seed):
+        self.name = 'graph_density'
         self.X = X
-        self.y = y
         self.flat_X = self.flatten_X()
-        self.name = 'kcenter'
-        self.features = self.flat_X
-        self.metric = metric
-        self.min_distances = None
-        self.n_obs = self.X.shape[0]
-        self.already_selected = []
-
-    def update_distances(self, cluster_centers, only_new=True, reset_dist=False):
-        """Update min distances given cluster centers.
-
-        Args:
-          cluster_centers: indices of cluster centers
-          only_new: only calculate distance for newly selected points and update
-            min_distances.
-          rest_dist: whether to reset min_distances.
-        """
-
-        if reset_dist:
-            self.min_distances = None
-        if only_new:
-            cluster_centers = [d for d in cluster_centers
-                               if d not in self.already_selected]
-        if cluster_centers:
-            x = self.features[cluster_centers]
-            dist = pairwise_distances(
-                self.features, x, metric=self.metric, n_jobs=-1)
-
-            if self.min_distances is None:
-                self.min_distances = np.min(dist, axis=1)
-            else:
-                self.min_distances = np.minimum(self.min_distances, dist)
-
-    def select_batch(self, model, already_selected, N, **kwargs):
-        """
-        Diversity promoting active learning method that greedily forms a batch
-        to minimize the maximum distance to a cluster center among all unlabeled
-        datapoints.
-
-        Args:
-          model: model with scikit-like API with decision_function implemented
-          already_selected: index of datapoints already selected
-          N: batch size
-
-        Returns:
-          indices of points selected to minimize distance to cluster centers
-        """
-
-        try:
-            # Assumes that the transform function takes in original data and not
-            # flattened data.
-            print('Getting transformed features...')
-            self.features = model.transform(self.X)
-            print('Calculating distances...')
-            self.update_distances(
-                already_selected, only_new=False, reset_dist=True)
-        except:
-            print('Using flat_X as features.')
-            self.update_distances(
-                already_selected, only_new=True, reset_dist=False)
-
-        new_batch = []
-
-        for _ in range(N):
-            if self.already_selected is None:
-                # Initialize centers with a randomly selected datapoint
-                ind = np.random.choice(np.arange(self.n_obs))
-            else:
-                ind = np.argmax(self.min_distances)
-            # New examples should not be in already selected since those points
-            # should have min_distance of zero to a cluster center.
-            self.update_distances([ind], only_new=True, reset_dist=False)
-            new_batch.append(ind)
-
-        self.already_selected = already_selected
-
-        return new_batch
-
+        # Set gamma for gaussian kernel to be equal to 1/n_features
+        self.gamma = 1. / self.X.shape[1]
+        self.compute_graph_density()
 
     def flatten_X(self):
         shape = self.X.shape
@@ -124,3 +48,53 @@ class kCenterGreedy:
         if len(shape) > 2:
             flat_X = np.reshape(self.X, (shape[0], np.product(shape[1:])))
         return flat_X
+
+    def compute_graph_density(self, n_neighbor=10):
+        # kneighbors graph is constructed using k=10
+        connect = kneighbors_graph(self.flat_X, n_neighbor, p=1)
+        # Make connectivity matrix symmetric, if a point is a k nearest neighbor of
+        # another point, make it vice versa
+        neighbors = connect.nonzero()
+        inds = zip(neighbors[0], neighbors[1])
+        # Graph edges are weighted by applying gaussian kernel to manhattan dist.
+        # By default, gamma for rbf kernel is equal to 1/n_features but may
+        # get better results if gamma is tuned.
+        for entry in inds:
+            i = entry[0]
+            j = entry[1]
+            distance = pairwise_distances(
+                self.flat_X[[i]], self.flat_X[[j]], metric='manhattan')
+            distance = distance[0, 0]
+            weight = np.exp(-distance * self.gamma)
+            connect[i, j] = weight
+            connect[j, i] = weight
+        self.connect = connect
+        # Define graph density for an observation to be sum of weights for all
+        # edges to the node representing the datapoint.  Normalize sum weights
+        # by total number of neighbors.
+        self.graph_density = np.zeros(self.X.shape[0])
+        for i in np.arange(self.X.shape[0]):
+            self.graph_density[i] = connect[i, :].sum() / \
+                (connect[i, :] > 0).sum()
+        self.starting_density = copy.deepcopy(self.graph_density)
+
+    def select_batch(self, N, already_selected, **kwargs):
+        # If a neighbor has already been sampled, reduce the graph density
+        # for its direct neighbors to promote diversity.
+        batch = set()
+        self.graph_density[already_selected.reshape(-1)] = min(self.graph_density) - 1
+        while len(batch) < N:
+            selected = np.argmax(self.graph_density)
+            neighbors = (self.connect[selected, :] > 0).nonzero()[1]
+            self.graph_density[neighbors] = self.graph_density[neighbors] - \
+                self.graph_density[selected]
+            batch.add(selected)
+            self.graph_density[already_selected] = min(self.graph_density) - 1
+            self.graph_density[list(batch)] = min(self.graph_density) - 1
+        return list(batch)
+
+    def to_dict(self):
+        output = {}
+        output['connectivity'] = self.connect
+        output['graph_density'] = self.starting_density
+        return output

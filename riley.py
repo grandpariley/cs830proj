@@ -98,22 +98,22 @@ def get_random_indicies(num_indicies, all_indicies):
 
 def get_model(sm, m, x, y):
     # active learning time!
-    from sklearn.cluster import KMeans
+    from sklearn.svm import NuSVC
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
 
     sampling_method = None
-    sampling_model = KMeans()
+    sampling_model = NuSVC()
     if sm == "margin":
         from activelearning.margin import MarginAL
 
         print("margin time!")
         sampling_method = MarginAL(x, y, 13)
     if sm == "kcentre":
-        from activelearning.kcenter_greedy import kCenterGreedy
+        from activelearning.kcenter_greedy import GraphDensitySampler
 
         print("kcentre time!")
-        sampling_method = kCenterGreedy(x, None, None)
+        sampling_method = GraphDensitySampler(x, y, 13)
     # model time!
     model = None
     if m == "svm":
@@ -143,7 +143,7 @@ def main(argv):
         return
     print("active learning time!")
     batches = argv[2]
-    indicies = get_random_indicies(argv[3], x.shape[0])
+    indicies = list(range(6 * len(np.unique(y))))
     for b in range(batches):
         print("starting round " + str(b) + " with " + str(len(indicies)) + " samples")
         x_part = np.array([x[i] for i in indicies])
@@ -152,9 +152,9 @@ def main(argv):
         model.fit(x_part, y_part)
         accuracy = model.score(x_test, y_test)
         print(b, accuracy)
-        indicies = indicies.union(
+        indicies.extend(
             sampling_method.select_batch(
-                model=sampling_model, already_selected=indicies, N=argv[3])
+                model=sampling_model, already_selected=np.array(indicies), N=argv[3])
         )
 
 
