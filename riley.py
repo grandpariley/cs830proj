@@ -65,15 +65,15 @@ def get_ag_news():
         batch_size=-1,
         as_supervised=True,
     ))
-    y = y[:12000].tolist()
-    y_test = y_test[:760].tolist()
-    x = lemma([word_tokenize(trim(i)) for i in x[:12000]])
-    x_test = lemma([word_tokenize(trim(i)) for i in x_test[:760]])
+    y = y[:1200].tolist()
+    y_test = y_test[:76].tolist()
+    x = lemma([word_tokenize(trim(i)) for i in x[:1200]])
+    x_test = lemma([word_tokenize(trim(i)) for i in x_test[:76]])
     ## human readable until here ##
     tfidf_vectorizer = TfidfVectorizer(max_features=5000)
     tfidf_vectorizer.fit(x + x_test)
-    x = tfidf_vectorizer.transform(x).toarray()
-    x_test = tfidf_vectorizer.transform(x_test).toarray()
+    x = np.asarray(tfidf_vectorizer.transform(x).todense())
+    x_test = np.asarray(tfidf_vectorizer.transform(x_test).todense())
 
     with open('x.json', 'w') as file:
         json.dump(x.tolist(), file)
@@ -105,12 +105,12 @@ def get_model(sm, m, x, y):
     sampling_method = None
     sampling_model = make_pipeline(StandardScaler(with_mean=False), NuSVC())
     if sm == "margin":
-        from sampling_methods.margin_AL import MarginAL
+        from activelearning.margin import MarginAL
 
         print("margin time!")
         sampling_method = MarginAL(x, y, 13)
     if sm == "kcentre":
-        from sampling_methods.kcenter_greedy import kCenterGreedy
+        from activelearning.kcenter_greedy import kCenterGreedy
 
         print("kcentre time!")
         sampling_method = kCenterGreedy(x, None, None)
@@ -119,16 +119,16 @@ def get_model(sm, m, x, y):
     if m == "svm":
         print("svm time!")
         model = make_pipeline(StandardScaler(with_mean=False), NuSVC())
-    if m == "cnn":
-        from utils.small_cnn import SmallCNN
+    if m == "nn":
+        from deeplearning.small_nn import SmallNN
 
-        print("cnn time!")
-        model = SmallCNN(random_state=13)
+        print("nn time!")
+        model = SmallNN(random_state=13)
     return model, sampling_method, sampling_model
 
 
 def main(argv):
-    argv = ["margin", "cnn", 10, 200, True, False]
+    argv = ["margin", "nn", 10, 200, True, False]
     x, y, x_test, y_test = get_ag_news()
     if argv[5]:
         print("that's all folks!")

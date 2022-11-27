@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Implements Small CNN model in keras using tensorflow backend."""
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -21,26 +20,13 @@ import copy
 
 import keras
 import keras.backend as K
-from keras.layers import Dense
-from keras.layers import Dropout
-from keras.layers import Flatten
-from keras.models import Sequential
 from keras.optimizers import RMSprop
 
 import numpy as np
 import tensorflow as tf
 
 
-class SmallCNN(object):
-    """Small convnet that matches sklearn api.
-
-    Implements model from
-    https://github.com/fchollet/keras/blob/master/examples/cifar10_cnn.py
-    Adapts for inputs of variable size, expects data to be 4d tensor, with
-    # of obserations as first dimension and other dimensions to correspond to
-    length width and # of channels in image.
-    """
-
+class SmallNN(object):
     def __init__(self,
                  random_state=1,
                  epochs=50,
@@ -64,10 +50,13 @@ class SmallCNN(object):
     def build_model(self, X):
         np.random.seed(self.random_state)
         tf.random.set_seed(self.random_state)
-        print(X.numpy())
         model = tf.keras.models.Sequential(
             [
                 tf.keras.layers.Embedding(5000, 4, input_length=5000),
+                tf.keras.layers.Dropout(0.3),
+                tf.keras.layers.Bidirectional(
+                    tf.keras.layers.LSTM(32, return_sequences=True)
+                ),
                 tf.keras.layers.LSTM(16),
                 tf.keras.layers.Dense(4, activation='softmax')
             ]
@@ -90,7 +79,6 @@ class SmallCNN(object):
         y_mat = keras.utils.to_categorical(y_encode, self.n_classes)
         return np.array(y_mat)
 
-    # Add handling for classes that do not start counting from 0
     def encode_y(self, y):
         if self.encode_map is None:
             self.classes_ = sorted(list(set(y)))
@@ -113,7 +101,6 @@ class SmallCNN(object):
         if self.model is None:
             self.build_model(X_train)
 
-        # We don't want incremental fit so reset learning rate and weights
         K.set_value(self.model.optimizer.lr, self.learning_rate)
         self.model.set_weights(self.initial_weights)
         self.model.fit(
@@ -143,7 +130,6 @@ class SmallCNN(object):
         inp = [model.input]
         activations = []
 
-        # Get activations of the first dense layer.
         output = [layer.output for layer in model.layers if
                   layer.name == 'dense1'][0]
         func = K.function(inp + [K.learning_phase()], [output])
@@ -151,7 +137,6 @@ class SmallCNN(object):
             minibatch = X[i *
                           self.batch_size: min(X.shape[0], (i+1) * self.batch_size)]
             list_inputs = [minibatch, 0.]
-            # Learning phase. 0 = Test mode (no dropout or batch normalization)
             layer_output = func(list_inputs)[0]
             activations.append(layer_output)
         output = np.vstack(tuple(activations))

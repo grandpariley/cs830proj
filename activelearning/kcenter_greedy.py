@@ -32,10 +32,9 @@ from __future__ import print_function
 
 import numpy as np
 from sklearn.metrics import pairwise_distances
-from sampling_methods.sampling_def import SamplingMethod
 
 
-class kCenterGreedy(SamplingMethod):
+class kCenterGreedy:
 
   def __init__(self, X, y, seed, metric='euclidean'):
     self.X = X
