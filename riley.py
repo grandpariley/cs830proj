@@ -26,7 +26,7 @@ def get_ag_news():
         with open('y_test.json', 'r') as file:
             y_test = json.load(file)
         print("loaded cache")
-        return sparse.csr_matrix(np.array(x)), np.array(y), sparse.csr_matrix(np.array(x_test)), np.array(y_test)
+        return np.array(x), np.array(y), np.array(x_test), np.array(y_test)
 
     import tensorflow_datasets as tfds
     import nltk
@@ -65,10 +65,10 @@ def get_ag_news():
         batch_size=-1,
         as_supervised=True,
     ))
-    y = y[:1200].tolist()
-    y_test = y_test[:76].tolist()
-    x = lemma([word_tokenize(trim(i)) for i in x[:1200]])
-    x_test = lemma([word_tokenize(trim(i)) for i in x_test[:76]])
+    y = y[:3600].tolist()
+    y_test = y_test[:228].tolist()
+    x = lemma([word_tokenize(trim(i)) for i in x[:3600]])
+    x_test = lemma([word_tokenize(trim(i)) for i in x_test[:228]])
     ## human readable until here ##
     tfidf_vectorizer = TfidfVectorizer(max_features=5000)
     tfidf_vectorizer.fit(x + x_test)
@@ -83,7 +83,7 @@ def get_ag_news():
         json.dump(y, file)
     with open('y_test.json', 'w') as file:
         json.dump(y_test, file)
-    return sparse.csr_matrix(x), np.array(y), sparse.csr_matrix(x_test), np.array(y_test)
+    return np.array(x), np.array(y), np.array(x_test), np.array(y_test)
 
 
 def get_random_indicies(num_indicies, all_indicies):
@@ -98,12 +98,12 @@ def get_random_indicies(num_indicies, all_indicies):
 
 def get_model(sm, m, x, y):
     # active learning time!
-    from sklearn.svm import NuSVC
+    from sklearn.cluster import KMeans
     from sklearn.pipeline import make_pipeline
     from sklearn.preprocessing import StandardScaler
 
     sampling_method = None
-    sampling_model = make_pipeline(StandardScaler(with_mean=False), NuSVC())
+    sampling_model = KMeans()
     if sm == "margin":
         from activelearning.margin import MarginAL
 
@@ -117,6 +117,8 @@ def get_model(sm, m, x, y):
     # model time!
     model = None
     if m == "svm":
+        from sklearn.svm import NuSVC
+
         print("svm time!")
         model = make_pipeline(StandardScaler(with_mean=False), NuSVC())
     if m == "nn":
@@ -128,22 +130,22 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["margin", "nn", 10, 200, True, False]
+    argv = ["kcentre", "svm", 10, 200, True, True]
     x, y, x_test, y_test = get_ag_news()
-    if argv[5]:
+    if not argv[5]:
         print("that's all folks!")
         return
     model, sampling_method, sampling_model = get_model(argv[0], argv[1], x, y)
-    if argv[4]:
+    if not argv[4]:
         print("passive learning time!")
         model.fit(x, y)
         print(model.score(x_test, y_test))
         return
     print("active learning time!")
     batches = argv[2]
-    indicies = get_random_indicies(argv[3], len(x))
+    indicies = get_random_indicies(argv[3], x.shape[0])
     for b in range(batches):
-        print("starting round " + str(b))
+        print("starting round " + str(b) + " with " + str(len(indicies)) + " samples")
         x_part = np.array([x[i] for i in indicies])
         y_part = np.array([y[i] for i in indicies])
         sampling_model.fit(x_part, y_part)

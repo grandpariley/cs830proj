@@ -30,7 +30,7 @@ class MarginAL:
     self.y = y
     self.name = 'margin'
 
-  def select_batch_(self, model, already_selected, N, **kwargs):
+  def select_batch(self, model, already_selected, N, **kwargs):
     """Returns batch of datapoints with smallest margin/highest uncertainty.
 
     For binary classification, can just take the absolute distance to decision
