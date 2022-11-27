@@ -130,7 +130,7 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["kcentre", "svm", 10, 200, True, True]
+    argv = ["margin", "svm", 10, 200, True, True]
     x, y, x_test, y_test = get_ag_news()
     if not argv[5]:
         print("that's all folks!")
