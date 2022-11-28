@@ -29,7 +29,7 @@ import tensorflow as tf
 class SmallNN(object):
     def __init__(self,
                  random_state=1,
-                 epochs=50,
+                 epochs=20,
                  batch_size=32,
                  solver='rmsprop',
                  learning_rate=0.001,
@@ -53,11 +53,12 @@ class SmallNN(object):
         model = tf.keras.models.Sequential(
             [
                 tf.keras.layers.Embedding(5000, 4, input_length=5000),
-                tf.keras.layers.Dropout(0.3),
                 tf.keras.layers.Bidirectional(
-                    tf.keras.layers.LSTM(32, return_sequences=True)
+                    tf.keras.layers.LSTM(20, return_sequences=True)
                 ),
-                tf.keras.layers.LSTM(16),
+                tf.keras.layers.Bidirectional(
+                    tf.keras.layers.LSTM(20)
+                ),
                 tf.keras.layers.Dense(4, activation='softmax')
             ]
         )
@@ -97,7 +98,7 @@ class SmallNN(object):
 
     def fit(self, X_train, y_train, sample_weight=None):
         y_mat = tf.stack(self.create_y_mat(y_train))
-        X_train = tf.stack(X_train.toarray())
+        X_train = tf.stack(X_train)
         if self.model is None:
             self.build_model(X_train)
 
@@ -110,7 +111,8 @@ class SmallNN(object):
             epochs=self.epochs,
             shuffle=True,
             sample_weight=sample_weight,
-            verbose=0
+            verbose=0,
+            callbacks=[tf.keras.callbacks.EarlyStopping(monitor='accuracy', patience=2)]
         )
 
     def predict(self, X_val):
