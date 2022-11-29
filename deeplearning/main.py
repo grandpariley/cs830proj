@@ -103,7 +103,7 @@ def main(argv):
         test_seq = get_sequences(tokenizer, test_descriptions)
         test_labels = names_to_ids(test_labels)
         accuracy = model.evaluate(test_seq, test_labels)[1]
-        results.append({'round': b, 'accuracy': accuracy})
+        results.append({'round': len(indicies), 'accuracy': accuracy})
         indicies.extend(
             sampling_method.select_batch(
                 model=sampling_model, already_selected=np.array(indicies), N=200)
