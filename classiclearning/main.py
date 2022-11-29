@@ -1,6 +1,5 @@
 import numpy as np
-import scipy.sparse as sparse
-
+import json
 
 def files_exist():
     from os.path import exists as file_exists
@@ -142,6 +141,7 @@ def main(argv):
         print(model.score(x_test, y_test))
         return
     print("active learning time!")
+    results = []
     batches = argv[2]
     indicies = list(range(6 * len(np.unique(y))))
     for b in range(batches):
@@ -151,11 +151,14 @@ def main(argv):
         sampling_model.fit(x_part, y_part)
         model.fit(x_part, y_part)
         accuracy = model.score(x_test, y_test)
-        print(b, accuracy)
+        results.append({'round': b, 'accuracy': accuracy})
         indicies.extend(
             sampling_method.select_batch(
                 model=sampling_model, already_selected=np.array(indicies), N=argv[3])
         )
+    print(results)
+    with open('results.json', 'w') as f:
+        json.dump(results, f)
 
 
 if __name__ == "__main__":
