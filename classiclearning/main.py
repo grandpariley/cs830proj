@@ -1,5 +1,6 @@
 import numpy as np
 import json
+import time
 
 def files_exist():
     from os.path import exists as file_exists
@@ -104,15 +105,15 @@ def get_model(sm, m, x, y):
     sampling_method = None
     sampling_model = NuSVC()
     if sm == "margin":
-        from activelearning.margin import MarginAL
+        from classiclearning.activelearning.margin import MarginAL
 
         print("margin time!")
-        sampling_method = MarginAL(x, y, 13)
+        sampling_method = MarginAL(x, y, int(time.time()))
     if sm == "graph":
-        from activelearning.graph import GraphDensitySampler
+        from classiclearning.activelearning.graph import GraphDensitySampler
 
         print("graph time!")
-        sampling_method = GraphDensitySampler(x, y, 13)
+        sampling_method = GraphDensitySampler(x, y, int(time.time()))
     # model time!
     model = None
     if m == "svm":
@@ -142,7 +143,7 @@ def main(argv):
     print("active learning time!")
     results = []
     batches = argv[2]
-    indicies = list(range(6 * len(np.unique(y))))
+    indicies = list(range(50 * len(np.unique(y))))
     for b in range(batches):
         print("starting round " + str(b) + " with " + str(len(indicies)) + " samples")
         x_part = np.array([x[i] for i in indicies])
@@ -150,12 +151,11 @@ def main(argv):
         sampling_model.fit(x_part, y_part)
         model.fit(x_part, y_part)
         accuracy = model.score(x_test, y_test)
-        results.append({'round': b, 'accuracy': accuracy})
+        results.append({'round': len(indicies), 'accuracy': accuracy})
         indicies.extend(
             sampling_method.select_batch(
                 model=sampling_model, already_selected=np.array(indicies), N=argv[3])
         )
-    print(results)
-    with open('results-' + argv[0] + '.json', 'w') as f:
+    with open('classiclearning/results-' + argv[0] + '-' + argv[6] + '.json', 'w') as f:
         json.dump(results, f)
 
