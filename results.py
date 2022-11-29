@@ -1,6 +1,7 @@
 import json
 import matplotlib.pyplot as plt
-
+import numpy as np
+from sklearn.linear_model import LinearRegression
 
 def main(trials):
     results = {
@@ -28,6 +29,11 @@ def main(trials):
         plt.subplot(2, 2, index)
         plt.scatter(x, y)
         plt.title(title)
+        model = LinearRegression()
+        X = np.array(x).reshape(-1, 1)
+        model.fit(X, y)
+        y_line = model.predict(X)
+        plt.plot(x, y_line, 'r')
         plt.ylim(0.00, 1.00)
         plt.yticks([i/10.0 for i in range(0, 10)],
                    [str(i/10.0) for i in range(0, 10)])
