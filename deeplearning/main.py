@@ -149,25 +149,3 @@ if __name__ == "__main__":
 #         as_supervised=True,
 #     ))
 
-# def trim(b):
-#     return b.decode('utf-8').lower().replace("\\", " ")
-
-# x = [trim(i) for i in x]
-
-# new_dataset = {
-#     'train': [{
-#         'text': x[i],
-#         'label': y[i]
-#     } for i in range(10000)],
-#     'validation': [{
-#         'text': x[i],
-#         'label': y[i]
-#     } for i in range(10000, 20000)],
-#     'test': [{
-#         'text': x[i],
-#         'label': y[i]
-#     } for i in range(20000, 21000)]
-# }
-
-# print(dataset)
-# print(new_dataset)
