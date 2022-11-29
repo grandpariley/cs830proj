@@ -49,7 +49,7 @@ def main(trials):
     graph(4, x, y, 'Neural Network using \nMargin Active Learning')
     plt.style.use('seaborn-poster')
     plt.tight_layout()
-    plt.savefig('results.png')
+    plt.savefig('results.pdf', orientation='landscape')
     plt.show()
 
 if __name__ == "__main__":

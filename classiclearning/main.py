@@ -143,7 +143,7 @@ def main(argv):
     print("active learning time!")
     results = []
     batches = argv[2]
-    indicies = list(range(50 * len(np.unique(y))))
+    indicies = list(range(25 * len(np.unique(y))))
     for b in range(batches):
         print("starting round " + str(b) + " with " + str(len(indicies)) + " samples")
         x_part = np.array([x[i] for i in indicies])

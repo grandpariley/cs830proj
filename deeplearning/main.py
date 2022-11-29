@@ -89,13 +89,13 @@ def main(argv):
     val_seq = get_sequences(tokenizer, val_descriptions)
     val_labels = names_to_ids(val_labels)
     results = []
-    indicies = list(range(50 * len(np.unique(y))))
+    indicies = list(range(25 * len(np.unique(y))))
     train_labels = names_to_ids(labels)
     padded_train_seq = get_sequences(tokenizer, descriptions)
     sampling_method, sampling_model = get_sampling(
         argv[0], padded_train_seq, train_labels)
     sampling_model.fit(padded_train_seq, train_labels)
-    for b in range(5):
+    for b in range(10):
         model.fit(padded_train_seq[indicies], train_labels[indicies], validation_data=(val_seq, val_labels),
                       epochs=20, callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=2)])
 
@@ -106,7 +106,7 @@ def main(argv):
         results.append({'round': len(indicies), 'accuracy': accuracy})
         indicies.extend(
             sampling_method.select_batch(
-                model=sampling_model, already_selected=np.array(indicies), N=200)
+                model=sampling_model, already_selected=np.array(indicies), N=100)
         )
 
     with open('deeplearning/results-' + argv[0] + '-' + argv[1] + '.json', 'w') as f:
