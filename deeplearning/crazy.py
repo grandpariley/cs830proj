@@ -4,6 +4,7 @@ import numpy as np
 import nlp
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from sklearn.svm import NuSVC
 import json
 
 dataset = nlp.load_dataset('emotion')
@@ -36,12 +37,18 @@ new_dataset = nlp.dataset_dict.DatasetDict({
     }
 })
 
-# def filterfn(datum): return datum['label'] not in ['sadness', 'anger']
+def get_sampling(sm, train_description, train_label): 
+    sampling_method = None
+    sampling_model = NuSVC(probability=True)
+    if sm == "margin":
+        from activelearning.margin import MarginAL
 
+        sampling_method = MarginAL(train_description, train_label, 13)
+    if sm == "graph":
+        from activelearning.graph import GraphDensitySampler
 
-# train = list(filter(filterfn, dataset['train']))
-# val = list(filter(filterfn, dataset['validation']))
-# test = list(filter(filterfn, dataset['test']))
+        sampling_method = GraphDensitySampler(train_description, train_label, 13)
+    return sampling_method, sampling_model
 
 train = new_dataset['train']
 val = new_dataset['validation']
@@ -90,10 +97,13 @@ val_descriptions, val_labels = get_description(val)
 val_seq = get_sequences(tokenizer, val_descriptions)
 val_labels = names_to_ids(val_labels)
 results = []
+indicies = list(range(100 * len(np.unique(y))))
+train_labels = names_to_ids(labels)
+padded_train_seq = get_sequences(tokenizer, descriptions)
+sampling_method, sampling_model = get_sampling('graph', padded_train_seq, train_labels)
+sampling_model.fit(padded_train_seq, train_labels)
 for b in range(5):
-    train_labels = names_to_ids(labels)
-    padded_train_seq = get_sequences(tokenizer, descriptions)
-    h = model.fit(padded_train_seq, train_labels, validation_data=(val_seq, val_labels),
+    h = model.fit(padded_train_seq[indicies], train_labels[indicies], validation_data=(val_seq, val_labels),
                 epochs=20, callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=2)])
 
     test_descriptions, test_labels = get_description(test)
@@ -101,6 +111,10 @@ for b in range(5):
     test_labels = names_to_ids(test_labels)
     accuracy = model.evaluate(test_seq, test_labels)[1]
     results.append({'round': b, 'accuracy': accuracy})
+    indicies.extend(
+            sampling_method.select_batch(
+                model=sampling_model, already_selected=np.array(indicies), N=1000)
+        )
 
 print(results)
 with open('results.json', 'w') as f:

@@ -139,13 +139,3 @@ if __name__ == "__main__":
 
     main(sys.argv)
 
-
-
-
-# (x, y), (_, _) = tfds.as_numpy(tfds.load(
-#         'ag_news_subset',
-#         split=['train', 'test'],
-#         batch_size=-1,
-#         as_supervised=True,
-#     ))
-
