@@ -29,8 +29,6 @@ def main(trials):
         plt.scatter(x, y)
         plt.title(title)
         plt.ylim(0.00, 1.00)
-        plt.xticks(list(range(0, max(x) + 1)),
-                   [str(i) for i in range(0, max(x) + 1)])
         plt.yticks([i/10.0 for i in range(0, 10)],
                    [str(i/10.0) for i in range(0, 10)])
         plt.grid()
@@ -54,3 +52,5 @@ def main(trials):
     plt.savefig('results.png')
     plt.show()
 
+if __name__ == "__main__":
+    main(10)
