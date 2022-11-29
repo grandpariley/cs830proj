@@ -1,141 +1,122 @@
+import tensorflow as tf
+import tensorflow_datasets as tfds
 import numpy as np
+import nlp
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from sklearn.svm import NuSVC
+import json
 
-
-def files_exist():
-    from os.path import exists as file_exists
-
-    return file_exists('x.json') and file_exists('x_test.json') and file_exists('y.json') and file_exists('y_test.json')
+dataset = nlp.load_dataset('emotion')
+(x, y), (_, _) = tfds.as_numpy(tfds.load(
+    'ag_news_subset',
+    split=['train', 'test'],
+    batch_size=-1,
+    as_supervised=True,
+))
 
 
 def trim(b):
     return b.decode('utf-8').lower().replace("\\", " ")
 
 
-def get_ag_news():
-    import json
+x = [trim(i) for i in x]
 
-    if files_exist():
-        print("hit cache")
-        with open('x.json', 'r') as file:
-            x = json.load(file)
-        with open('x_test.json', 'r') as file:
-            x_test = json.load(file)
-        with open('y.json', 'r') as file:
-            y = json.load(file)
-        with open('y_test.json', 'r') as file:
-            y_test = json.load(file)
-        print("loaded cache")
-        return np.array(x), np.array(y), np.array(x_test), np.array(y_test)
+new_dataset = nlp.dataset_dict.DatasetDict({
+    'train': {
+        'text': x[:10000],
+        'label': y[:10000]
+    },
+    'validation': {
+        'text': x[10000:11000],
+        'label': y[10000:11000]
+    },
+    'test': {
+        'text': x[11000:12000],
+        'label': y[11000:12000]
+    }
+})
 
-    import tensorflow_datasets as tfds
-    from tensorflow.keras.preprocessing.text import Tokenizer
-    from tensorflow.keras.preprocessing.sequence import pad_sequences
-
-    maxlen=200
-    def get_sequences(tokenizer, descriptions):
-        sequences = tokenizer.texts_to_sequences(descriptions)
-        padded = pad_sequences(sequences, truncating = 'post', padding='post', maxlen=maxlen)
-        return np.array(padded)
-
-    (x, y), (_, _) = tfds.as_numpy(tfds.load(
-        'ag_news_subset',
-        split=['train', 'test'],
-        batch_size=-1,
-        as_supervised=True,
-    ))
-    y = y[:3828].tolist()
-    x = [trim(i) for i in x[:3828]]
-    tokenizer = Tokenizer(num_words=len(y), oov_token='<UNK>')
-    tokenizer.fit_on_texts(x)
-    x = get_sequences(tokenizer, x)
-    x = x[:3600]
-    x_test = x[3600:]
-    y = y[:3600]
-    y_test = y[3600:]
-
-    with open('x.json', 'w') as file:
-        json.dump(x.tolist(), file)
-    with open('x_test.json', 'w') as file:
-        json.dump(x_test.tolist(), file)
-    with open('y.json', 'w') as file:
-        json.dump(y, file)
-    with open('y_test.json', 'w') as file:
-        json.dump(y_test, file)
-    return np.array(x), np.array(y), np.array(x_test), np.array(y_test)
-
-
-def get_random_indicies(num_indicies, all_indicies):
-    import random
-
-    assert num_indicies < all_indicies
-    s = set()
-    while len(s) < num_indicies:
-        s.add(random.randint(0, all_indicies - 1))
-    return s
-
-
-def get_model(sm, m, x, y):
-    # active learning time!
-    from sklearn.svm import NuSVC
-
+def get_sampling(sm, train_description, train_label): 
     sampling_method = None
-    sampling_model = NuSVC()
+    sampling_model = NuSVC(probability=True)
     if sm == "margin":
         from activelearning.margin import MarginAL
 
-        print("margin time!")
-        sampling_method = MarginAL(x, y, 13)
+        sampling_method = MarginAL(train_description, train_label, 13)
     if sm == "graph":
         from activelearning.graph import GraphDensitySampler
 
-        print("graph time!")
-        sampling_method = GraphDensitySampler(x, y, 13)
-    # model time!
-    model = None
-    # if m == "svm":
-    #     from sklearn.svm import NuSVC
+        sampling_method = GraphDensitySampler(train_description, train_label, 13)
+    return sampling_method, sampling_model
 
-    #     print("svm time!")
-    #     model = make_pipeline(StandardScaler(with_mean=False), NuSVC())
-    if m == "nn":
-        from small_nn import SmallNN
-
-        print("nn time!")
-        model = SmallNN(random_state=13)
-    return model, sampling_method, sampling_model
+train = new_dataset['train']
+val = new_dataset['validation']
+test = new_dataset['test']
 
 
-def main(argv):
-    argv = ["margin", "nn", 5, 200, True, True]
-    x, y, x_test, y_test = get_ag_news()
-    if not argv[5]:
-        print("that's all folks!")
-        return
-    model, sampling_method, sampling_model = get_model(argv[0], argv[1], x, y)
-    if not argv[4]:
-        print("passive learning time!")
-        model.fit(x, y)
-        print(model.score(x_test, y_test))
-        return
-    print("active learning time!")
-    batches = argv[2]
-    indicies = list(range(6 * len(np.unique(y))))
-    for b in range(batches):
-        print("starting round " + str(b) + " with " + str(len(indicies)) + " samples")
-        x_part = np.array([x[i] for i in indicies])
-        y_part = np.array([y[i] for i in indicies])
-        sampling_model.fit(x_part, y_part)
-        model.fit(x_part, y_part)
-        accuracy = model.score(x_test, y_test)
-        print(b, accuracy)
-        indicies.extend(
+def get_description(data):
+    descriptions = data['text']
+    labels = data['label']
+    return descriptions, labels
+
+
+descriptions, labels = get_description(train)
+
+tokenizer = Tokenizer(num_words=10000, oov_token='<UNK>')
+tokenizer.fit_on_texts(descriptions)
+
+maxlen = 50
+
+
+def get_sequences(tokenizer, descriptions):
+    sequences = tokenizer.texts_to_sequences(descriptions)
+    padded = pad_sequences(sequences, truncating='post',
+                           padding='post', maxlen=maxlen)
+    return padded
+
+
+classes = set(labels)
+
+class_to_index = dict((c, i) for i, c in enumerate(classes))
+index_to_class = dict((v, k) for k, v in class_to_index.items())
+
+
+def names_to_ids(labels): return np.array(
+    [class_to_index.get(l) for l in labels])
+
+
+
+
+model = tf.keras.models.Sequential([tf.keras.layers.Embedding(10000, 16, input_length=maxlen), tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(
+    20, return_sequences=True)), tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(20)), tf.keras.layers.Dense(4, activation='softmax')])
+model.compile(loss='sparse_categorical_crossentropy',
+              optimizer='adam', metrics=['accuracy'])
+
+val_descriptions, val_labels = get_description(val)
+val_seq = get_sequences(tokenizer, val_descriptions)
+val_labels = names_to_ids(val_labels)
+results = []
+indicies = list(range(100 * len(np.unique(y))))
+train_labels = names_to_ids(labels)
+padded_train_seq = get_sequences(tokenizer, descriptions)
+al_type = 'margin'
+sampling_method, sampling_model = get_sampling(al_type, padded_train_seq, train_labels)
+sampling_model.fit(padded_train_seq, train_labels)
+for b in range(5):
+    h = model.fit(padded_train_seq[indicies], train_labels[indicies], validation_data=(val_seq, val_labels),
+                epochs=20, callbacks=[tf.keras.callbacks.EarlyStopping(monitor='val_accuracy', patience=2)])
+
+    test_descriptions, test_labels = get_description(test)
+    test_seq = get_sequences(tokenizer, test_descriptions)
+    test_labels = names_to_ids(test_labels)
+    accuracy = model.evaluate(test_seq, test_labels)[1]
+    results.append({'round': b, 'accuracy': accuracy})
+    indicies.extend(
             sampling_method.select_batch(
-                model=sampling_model, already_selected=np.array(indicies), N=argv[3])
+                model=sampling_model, already_selected=np.array(indicies), N=1000)
         )
 
-
-if __name__ == "__main__":
-    import sys
-
-    main(sys.argv)
-
+print(results)
+with open('results-' + al_type + '.json', 'w') as f:
+    json.dump(results, f)

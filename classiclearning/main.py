@@ -129,7 +129,7 @@ def get_model(sm, m, x, y):
 
 
 def main(argv):
-    argv = ["graph", "svm", 5, 200, True, True]
+    argv = ["margin", "svm", 5, 200, True, True]
     x, y, x_test, y_test = get_ag_news()
     if not argv[5]:
         print("that's all folks!")
@@ -157,7 +157,7 @@ def main(argv):
                 model=sampling_model, already_selected=np.array(indicies), N=argv[3])
         )
     print(results)
-    with open('results.json', 'w') as f:
+    with open('results-' + argv[0] + '.json', 'w') as f:
         json.dump(results, f)
 
 
