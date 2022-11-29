@@ -52,7 +52,7 @@ class SmallNN(object):
         tf.random.set_seed(self.random_state)
         model = tf.keras.models.Sequential(
             [
-                tf.keras.layers.Embedding(5000, 4, input_length=5000),
+                tf.keras.layers.Embedding(3600, 16, input_length=200),
                 tf.keras.layers.Bidirectional(
                     tf.keras.layers.LSTM(20, return_sequences=True)
                 ),
@@ -64,8 +64,8 @@ class SmallNN(object):
         )
 
         model.compile(
-            loss='categorical_crossentropy',
-            optimizer=RMSprop(),
+            loss='sparse_categorical_crossentropy',
+            optimizer='adam',
             metrics=['accuracy']
         )
 
@@ -102,17 +102,14 @@ class SmallNN(object):
         if self.model is None:
             self.build_model(X_train)
 
-        K.set_value(self.model.optimizer.lr, self.learning_rate)
-        self.model.set_weights(self.initial_weights)
+        # K.set_value(self.model.optimizer.lr, self.learning_rate)
+        # self.model.set_weights(self.initial_weights)
         self.model.fit(
             X_train,
-            y_mat,
-            batch_size=self.batch_size,
-            epochs=self.epochs,
-            shuffle=True,
-            sample_weight=sample_weight,
-            verbose=0,
-            callbacks=[tf.keras.callbacks.EarlyStopping(monitor='accuracy', patience=2)]
+            y_train,
+            epochs=20,
+            callbacks=[tf.keras.callbacks.EarlyStopping(
+                monitor='accuracy', patience=2)]
         )
 
     def predict(self, X_val):

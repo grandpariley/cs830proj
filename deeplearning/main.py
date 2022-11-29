@@ -28,51 +28,30 @@ def get_ag_news():
         return np.array(x), np.array(y), np.array(x_test), np.array(y_test)
 
     import tensorflow_datasets as tfds
-    import nltk
-    from nltk.tokenize import word_tokenize
-    from nltk.corpus import wordnet as wn
-    from nltk.corpus import stopwords
-    from nltk.stem import WordNetLemmatizer
-    from nltk import pos_tag
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from collections import defaultdict
-    nltk.download('punkt')
-    nltk.download('wordnet')
-    nltk.download('omw-1.4')
-    nltk.download('averaged_perceptron_tagger')
-    nltk.download('stopwords')
+    from tensorflow.keras.preprocessing.text import Tokenizer
+    from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-    def lemma(array):
-        tag_map = defaultdict(lambda: wn.NOUN)
-        tag_map['J'] = wn.ADJ
-        tag_map['V'] = wn.VERB
-        tag_map['R'] = wn.ADV
-        rt = []
-        word_net_lemmatizer = WordNetLemmatizer()
-        for entry in array:
-            final = []
-            for word, tag in pos_tag(entry):
-                if word not in stopwords.words('english') and word.isalpha():
-                    word = word_net_lemmatizer.lemmatize(word, tag_map[tag[0]])
-                    final.append(word)
-            rt.append(str(final))
-        return rt
+    maxlen=200
+    def get_sequences(tokenizer, descriptions):
+        sequences = tokenizer.texts_to_sequences(descriptions)
+        padded = pad_sequences(sequences, truncating = 'post', padding='post', maxlen=maxlen)
+        return np.array(padded)
 
-    (x, y), (x_test, y_test) = tfds.as_numpy(tfds.load(
+    (x, y), (_, _) = tfds.as_numpy(tfds.load(
         'ag_news_subset',
         split=['train', 'test'],
         batch_size=-1,
         as_supervised=True,
     ))
-    y = y[:3600].tolist()
-    y_test = y_test[:228].tolist()
-    x = lemma([word_tokenize(trim(i)) for i in x[:3600]])
-    x_test = lemma([word_tokenize(trim(i)) for i in x_test[:228]])
-    ## human readable until here ##
-    tfidf_vectorizer = TfidfVectorizer(max_features=5000)
-    tfidf_vectorizer.fit(x + x_test)
-    x = np.asarray(tfidf_vectorizer.transform(x).todense())
-    x_test = np.asarray(tfidf_vectorizer.transform(x_test).todense())
+    y = y[:3828].tolist()
+    x = [trim(i) for i in x[:3828]]
+    tokenizer = Tokenizer(num_words=len(y), oov_token='<UNK>')
+    tokenizer.fit_on_texts(x)
+    x = get_sequences(tokenizer, x)
+    x = x[:3600]
+    x_test = x[3600:]
+    y = y[:3600]
+    y_test = y[3600:]
 
     with open('x.json', 'w') as file:
         json.dump(x.tolist(), file)
@@ -119,7 +98,7 @@ def get_model(sm, m, x, y):
     #     print("svm time!")
     #     model = make_pipeline(StandardScaler(with_mean=False), NuSVC())
     if m == "nn":
-        from deeplearning.small_nn import SmallNN
+        from small_nn import SmallNN
 
         print("nn time!")
         model = SmallNN(random_state=13)
