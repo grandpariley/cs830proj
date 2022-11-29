@@ -19,35 +19,36 @@ def trim(b):
 
 x = [trim(i) for i in x]
 
-new_dataset = {
-    'train': [{
-        'text': x[i],
-        'label': y[i]
-    } for i in range(10000)],
-    'validation': [{
-        'text': x[i],
-        'label': y[i]
-    } for i in range(10000, 20000)],
-    'test': [{
-        'text': x[i],
-        'label': y[i]
-    } for i in range(20000, 21000)]
-}
+new_dataset = nlp.dataset_dict.DatasetDict({
+    'train': {
+        'text': x[:10000],
+        'label': y[:10000]
+    },
+    'validation': {
+        'text': x[10000:20000],
+        'label': y[10000:20000]
+    },
+    'test': {
+        'text': x[20000:21000],
+        'label': y[20000:21000]
+    }
+})
 
-print(dataset)
-print(new_dataset)
-
-def filterfn(datum): return datum['label'] not in ['sadness', 'anger']
+# def filterfn(datum): return datum['label'] not in ['sadness', 'anger']
 
 
-train = list(filter(filterfn, dataset['train']))
-val = list(filter(filterfn, dataset['validation']))
-test = list(filter(filterfn, dataset['test']))
+# train = list(filter(filterfn, dataset['train']))
+# val = list(filter(filterfn, dataset['validation']))
+# test = list(filter(filterfn, dataset['test']))
+
+train = new_dataset['train']
+val = new_dataset['validation']
+test = new_dataset['test']
 
 
 def get_description(data):
-    descriptions = [d['text'] for d in data]
-    labels = [d['label'] for d in data]
+    descriptions = data['text']
+    labels = data['label']
     return descriptions, labels
 
 
